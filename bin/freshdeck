@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Launch the fresh editor with the "freshdeck" profile:
+#   file tree + Artifacts column | editor + shell below | Claude Code right.
+#
+# Usage: freshdeck [workspace-dir]
+# Workspace resolution: argument > ~/.config/freshdeck/workspace > $PWD.
+
+config_file="${XDG_CONFIG_HOME:-$HOME/.config}/freshdeck/workspace"
+dir="${1:-}"
+if [[ -z "$dir" && -f "$config_file" ]]; then
+	dir="$(<"$config_file")"
+fi
+dir="${dir:-$PWD}"
+if [[ "$(cd "$dir" && pwd -P)" == "$(cd "$HOME" && pwd -P)" ]]; then
+	echo "freshdeck: refusing to launch in home directory — cd into a project or pass a workspace dir" >&2
+	exit 1
+fi
+cd "$dir"
+
+# init.ts spawns Claude Code directly as the PTY child (no login shell), so
+# hand it a full path — the PTY won't have your shell profile's PATH.
+FRESHDECK_BIN="$(command -v claude || true)"
+export FRESHDECK_BIN
+
+export FRESH_PROFILE=freshdeck
+
+# --no-restore: fresh otherwise restores the last session's workspace
+# (splits, explorer state), overriding the layout init.ts builds.
+# (The tmux layers that used to live here — a shield wrapping fresh and
+# per-workspace inner sessions for the shell terminals, workarounds for
+# sinelaw/fresh #2793/#2831 — were removed after 0.4.6 fixed both upstream.)
+exec fresh --no-restore
